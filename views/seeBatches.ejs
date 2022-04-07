@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <style>
+        #edit-modal-form {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+
+    <title>All Batches</title>
+</head>
+<body>
+    <%- include('./partials/navbar.ejs') %>
+    <hr><h1 class="display-3">All Batches</h1><hr>
+  
+    <!-- Batch Edit Modal -->
+    <div style="backdrop-filter: blur(5px)" class="modal fade" id="editModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Edit Batch</h5>
+                <button id="edit-modal-close-btn" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div id="batch-edit-modal-body" class="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students Modal -->
+    <div style="backdrop-filter: blur(5px)" class="modal fade" id="studentsModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Students</h5>
+                <button id="students-modal-close-btn" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div id="students-modal-body" class="modal-body"></div>
+
+                <div id="students-modal-footer" class="modal-footer">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <button onclick="return fetchRecords(event)" id="refreshBtn" class="btn btn-success btn-lg m-2">Refresh</button>
+
+    <div id="table-container">
+        
+    </div>    
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script>
+        const refresh = document.getElementById('refreshBtn');
+
+
+        // To make the navigation bar link active for this page
+        for (i = 0; i < navbar.children.length; i++) {
+            let child = navbar.children[i];
+            if (child.id === 'see-all-batches')
+                child.children[0].classList.add("active");
+            else
+                if (child.id != '') child.children[0].classList.remove('active');
+        }
+
+
+        async function fetchRecords() {
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = 'Loading...';
+            var result = await fetch('http://localhost:5000/getAllBatches');
+            result = await result.json();
+            if (result.status) {
+                tableContainer.innerHTML = `
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th scope="col">Batch Name</th>
+                            <th scope="col">Semester</th>
+                            <th scope="col">Teacher</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                `;
+                const tableBody = document.getElementById('table-body');
+                tableBody.innerHTML = '';
+
+                result.result.forEach(elem => {
+                    isActive = elem.active;
+                    button = '';
+                    if (isActive == 0)
+                        button = `<button onclick="return toggleActivate(event)" class="btn btn-outline-success" data-id="${elem.id}">Activate</button>`; 
+                    else
+                        button = `<button onclick="return toggleActivate(event)" class="btn btn-outline-danger" data-id="${elem.id}">Deactivate</button>`;
+
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${elem.bname}</td>
+                            <td>${elem.sem}</td>
+                            <td>${elem.tname}</td>
+                            <td>
+                                <button onclick="return handleBatchEdit(event)" class="btn btn-secondary" data-id="${elem.id}"data-bs-toggle="modal" data-bs-target="#editModal">Edit</button>
+                                <button onclick="return getBatchStudents(event)" class="btn btn-warning" data-bid="${elem.id}" data-bs-toggle="modal" data-bs-target="#studentsModal">Students</button>
+                                ${button}
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else tableContainer.innerHTML = result.err_msg;
+        }
+
+        async function toggleActivate(event) {
+            await fetch('http://localhost:5000/getAllBatches', {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: event.target.getAttribute('data-id')
+                })
+            });
+            refresh.click();
+        }
+
+        async function handleBatchEdit(event) {
+            var result = await fetch('http://localhost:5000/getSpecificBatch', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: event.target.getAttribute('data-id') })
+            });
+            result = await result.json();
+            modalBody = document.getElementById('batch-edit-modal-body');
+            modalBody.innerHTML = `
+                <form id="edit-modal-form">
+                    <label for="batchID" class="form-label">ID</label>
+                    <input type="text" id="batchID" class="form-control" value="${result.result[0].id}" readonly required>
+
+                    <label for="batchName" class="form-label">Name</label>
+                    <input type="text" id="batchName" class="form-control" value="${result.result[0].bname}" required>
+
+                    <label for="batchSem" class="form-label">Sem</label>
+                    <select name="batchSem" id="batchSem" class="form-select" title="Batch sem is for reference only and does not provide any special validaion. Sem 6 students can also be in sem 1 batch if the teacher wants them to be." required>
+                        <option value="" disabled selected>select batch sem</option>
+                        <option value="1">Sem 1</option>
+                        <option value="2">Sem 2</option>
+                        <option value="3">Sem 3</option>
+                        <option value="4">Sem 4</option>
+                        <option value="5">Sem 5</option>
+                        <option value="6">Sem 6</option>
+                    </select>
+
+                    <label for="batchTeacher" class="form-label">Teacher</label>
+                    <select name="batchTeacher" id="batchTeacher" class="form-select" required>
+                        <option value="" disabled selected>select batch teacher</option>
+                    </select>
+
+                    <button style="margin: auto; margin-top: 6px; width: 50%;" type="submit" class="btn btn-primary">Commit changes</button>
+                </form>
+            `;
+
+            const teacherOptions = document.getElementById('batchTeacher');
+            result = await fetch('http://localhost:5000/getTeachers');
+            result = await result.json();
+            result.result.forEach(elem => {
+                teacherOptions.innerHTML += `
+                    <option value='${elem.id}'>${elem.name}</option>
+                `;
+            });
+        }
+
+        async function getBatchStudents(event) {
+            const modalBody = document.getElementById('students-modal-body');
+            const modalFooter = document.getElementById('students-modal-footer');
+
+            modalBody.innerHTML = `<span>Loading...</span>`;
+
+            var result = await fetch('http://localhost:5000/batchStudents', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: event.target.getAttribute('data-bid')
+                })
+            });
+            result = await result.json();
+            if (result.result.length == 0)
+                modalBody.innerHTML = `<span>No Students in this Batch</span>`;
+            else {
+                modalBody.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">UID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Sem</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-students-table-body">
+
+                        </tbody>
+                    </table>
+                `;
+
+                let tableBody = document.getElementById('batch-students-table-body');
+                result.result.forEach(student => {
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${student.uid}</td>
+                            <td>${student.sname}</td>
+                            <td>${student.sem}</td>
+                            <td><button onclick="return deleteStudentFromBatch(event)" class="btn btn-outline-danger btn-sm" title="Remove this student from this batch" data-sid="${student.uid}" data-bid="${student.bid}">Remove</button></td>
+                        </tr>
+                    `;
+                })
+            }
+
+            modalFooter.innerHTML = `
+                <a onclick="document.getElementById('students-modal-close-btn').click()" href="http://localhost:5000/addStudentsToBatch?bid=${event.target.getAttribute('data-bid')}" class="btn btn-success" target="_blank" rel="noopener noreferrer">Add Students</a>
+            `;
+        }
+
+        async function deleteStudentFromBatch(event) {
+            var result = await fetch('http://localhost:5000/batchStudents', {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sid: event.target.getAttribute('data-sid'),
+                    bid: event.target.getAttribute('data-bid')
+                })
+            });
+            getBatchStudents(event);
+        }
+
+
+
+
+        window.onload = async event => {
+            refresh.click();
+        }
+    </script>
+</body>
+</html>
