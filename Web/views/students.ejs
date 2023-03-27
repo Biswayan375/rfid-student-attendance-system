@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <style>
+        .info-text {
+            display: block;
+            text-align: center;
+            font-size: 1.5rem;
+            color: rgb(161, 161, 161);
+        }
+    </style>
+
+    <title>Students</title>
+</head>
+<body>
+    <%- include('./partials/navbar.ejs') %>
+    <hr><h1 class="display-3">Students</h1><hr>
+
+    <!-- Delete confirm modal -->
+    <div style="backdrop-filter: blur(5px)" class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete this record?</h5>
+                    <button id="delete-modal-close-btn" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    This process is irreversible. Are you sure?
+                </div>
+                <div class="modal-footer">
+                    <button id="deleteConfirmBtn" onclick="return handleDelete(event)" class="btn btn-primary btn-sm" data-id="">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student details edit modal -->
+    <div style="backdrop-filter: blur(5px)" class="modal fade" id="detailsEditModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Student Details</h5>
+                    <button id="edit-modal-close-btn" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <div style="width: 90%; margin: auto;">
+        <button onclick="return fetchRecords(event)" id="refreshBtn" class="btn btn-success btn-lg m-2">Refresh</button>
+    
+        <div>
+            <label style="margin-left: 10px; font-size: 22px; color: #717171" for="sem-select">Apply Filter</label>
+            <select onchange="return fetchRecords(event)" style="width: 50%" class="form-select m-2" id="sem-select" aria-label="Default select example">
+                <option value="0" selected>All</option>
+                <option value="1">Sem 1</option>
+                <option value="2">Sem 2</option>
+                <option value="3">Sem 3</option>
+                <option value="4">Sem 4</option>
+                <option value="5">Sem 5</option>
+                <option value="6">Sem 6</option>
+            </select>
+        </div>
+    </div>
+
+
+    <div style="width: 90%;
+    margin: auto;
+    padding: 20px;
+    border-radius: 10px;
+    max-height: 350px;
+    overflow-y: auto;
+    box-shadow: 0px 0px 11px 1px #999797;" id="table-container">
+        
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script>
+        const select = document.getElementById('sem-select');
+        const refresh = document.getElementById("refreshBtn");
+        const table = document.getElementById('table-container');
+
+
+        // To make the navigation bar link active for this page
+        for (i = 0; i < navbar.children.length; i++) {
+            let child = navbar.children[i];
+            if (child.id === 'students-nav')
+                child.children[0].classList.add("active");
+            else
+                if (child.id != '') child.children[0].classList.remove('active');
+        }
+
+
+        async function handleDelete(event) {
+            let id = event.target.getAttribute("data-id");
+            document.getElementById('delete-modal-close-btn').click(); // Closing the delete confirm modal
+            await fetch('http://localhost:5000/students', {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    "id": id
+                })
+            });
+            refresh.click();
+        }
+
+
+
+        async function fetchRecords(event) {
+            table.innerHTML = '<span class="info-text">Loading...</span>'
+            let options = {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            }
+            if (select.value == 0) options.body = JSON.stringify({});
+            else options.body = JSON.stringify({ sem: select.value });
+            let result = await fetch('http://localhost:5000/students', options);
+            result = await result.json();
+            if (result.status) populateTable(result); 
+            else table.innerHTML = result.err_msg
+        }
+
+        function populateTable(result) {
+            if (result.result.length == 0)
+                table.innerHTML = '<span class="info-text">No Records</span>'
+            else {
+                table.innerHTML = `
+                <table class="table">
+                    <thead>
+                    <tr style="text-align: center">
+                        <th scope="col">UID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Sem</th>
+                        <th scope="col">Roll</th>
+                        <th scope="col">Mobile</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody style="text-align: center" id="table-body"></tbody>
+                </table>
+                `;
+
+                result.result.forEach(elem => {
+                    document.getElementById('table-body').innerHTML += `
+                        <tr>
+                            <td>${elem.uid}</td>    
+                            <td>${elem.name}</td>    
+                            <td>${elem.sem}</td>    
+                            <td>${elem.roll}</td>
+                            <td>${elem.mobile}</td>
+                            <td>
+                                <button onclick="return handleStudentEdit(event)" class="btn btn-secondary" data-id="${elem.uid}" data-bs-toggle="modal" data-bs-target="#detailsEditModal">Edit</button>
+                                <button onclick="document.getElementById('deleteConfirmBtn').setAttribute('data-id', '${elem.uid}')" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-id="${elem.uid}">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                })
+            }
+        }
+
+
+        async function handleStudentEdit(event) {
+            let uid = event.target.getAttribute('data-id');
+            let result = await fetch(`http://localhost:5000/specific-student-details?uid='${uid}'`);
+            result = await result.json();
+            result = result.result[0];
+
+            let modalBody = document.querySelector('#detailsEditModal > .modal-dialog > .modal-content > .modal-body');
+            let modalTitle = document.querySelector('#detailsEditModal > .modal-dialog > .modal-content > .modal-header > .modal-title');
+            modalTitle.innerHTML = `Edit Student - ${uid}`;
+            modalBody.innerHTML = `
+                <form action="specific-student-details" method="POST" id="edit-modal-form">
+                    <label for="UID" class="form-label">ID</label>
+                    <input class="form-control" id="UID" name="UID" value="${result.uid}" readonly>
+
+                    <label for="name" class="form-label">Name</label>
+                    <input class="form-control" id="name" name="name" value="${result.name}" required>
+
+                    <label for="sem" class="form-label">Sem</label>
+                    <select class="form-select" id="sem" name="sem" required>
+                        <option value="" disabled selected>select batch sem</option>
+                        <option value="1">Sem 1</option>
+                        <option value="2">Sem 2</option>
+                        <option value="3">Sem 3</option>
+                        <option value="4">Sem 4</option>
+                        <option value="5">Sem 5</option>
+                        <option value="6">Sem 6</option>
+                    </select>
+
+                    <label class="form-label" for="roll">Roll</label>
+                    <input class="form-control" id="roll" name="roll" value="${result.roll}" required>
+
+                    <label class="form-label" for="mobile">Mobile</label>
+                    <input type="number" class="form-control" id="mobile" name="mobile" value="${result.mobile}" required>
+
+                    <div style="text-align: center">
+                        <button style="margin: auto; margin-top: 6px; width: 50%;" type="submit" class="btn btn-primary">Commit changes</button>
+                    </div>
+                </form>
+            `;
+        }
+
+
+
+        window.onload = event => refresh.click();
+    </script>
+</body>
+</html>
